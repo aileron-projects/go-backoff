@@ -21,16 +21,16 @@ func TestFixed(t *testing.T) {
 		"interval=0":   {0, []time.Duration{0, 0, 0, 0, 0}},
 		"interval=1":   {1, []time.Duration{0, 1, 1, 1, 1}},
 		"interval=2":   {2, []time.Duration{0, 2, 2, 2, 2}},
-		"interval=max": {math.MaxInt, []time.Duration{0, math.MaxInt, math.MaxInt, math.MaxInt, math.MaxInt}},
+		"interval=max": {math.MaxInt, []time.Duration{0, math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64}},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			bo, err := backoff.NewFixed(tc.interval)
 			tester.AssertEqual(t, nil, err)
 			for i, n := range attempts {
+				t.Log("attempt=", n)
 				got := bo.Attempt(n)
 				tester.AssertEqual(t, tc.want[i], got)
-				t.Log("attempt=", n)
 			}
 		})
 	}
@@ -46,16 +46,16 @@ func TestRandom(t *testing.T) {
 	}{
 		"offset=0,limit=0":     {0, 0, []time.Duration{0, 0, 0, 0, 0}},
 		"offset=10,limit=10":   {10, 10, []time.Duration{0, 10, 10, 10, 10}},
-		"offset=max,limit=max": {math.MaxInt64, math.MaxInt64, []time.Duration{0, math.MaxInt, math.MaxInt, math.MaxInt, math.MaxInt}},
+		"offset=max,limit=max": {math.MaxInt64, math.MaxInt64, []time.Duration{0, math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64}},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			bo, err := backoff.NewRandom(tc.offset, tc.limit)
 			tester.AssertEqual(t, nil, err)
 			for i, n := range attempts {
+				t.Log("attempt=", n)
 				got := bo.Attempt(n)
 				tester.AssertEqual(t, tc.want[i], got)
-				t.Log("attempt=", n)
 			}
 		})
 	}
@@ -89,9 +89,9 @@ func TestLinear(t *testing.T) {
 			bo, err := backoff.NewLinear(tc.offset, tc.limit, tc.coeff, backoff.NoJitter)
 			tester.AssertEqual(t, nil, err)
 			for i, n := range attempts {
+				t.Log("attempt=", n)
 				got := bo.Attempt(n)
 				tester.AssertEqual(t, tc.want[i], got)
-				t.Log("attempt=", n)
 			}
 		})
 	}
@@ -125,9 +125,9 @@ func TestPolynomial(t *testing.T) {
 			bo, err := backoff.NewPolynomial(tc.offset, tc.limit, tc.coeff, 2, backoff.NoJitter)
 			tester.AssertEqual(t, nil, err)
 			for i, n := range attempts {
+				t.Log("attempt=", n)
 				got := bo.Attempt(n)
 				tester.AssertEqual(t, tc.want[i], got)
-				t.Log("attempt=", n)
 			}
 		})
 	}
@@ -161,9 +161,9 @@ func TestExponential(t *testing.T) {
 			bo, err := backoff.NewExponential(tc.offset, tc.limit, tc.coeff, 2, backoff.NoJitter)
 			tester.AssertEqual(t, nil, err)
 			for i, n := range attempts {
+				t.Log("attempt=", n)
 				got := bo.Attempt(n)
 				tester.AssertEqual(t, tc.want[i], got)
-				t.Log("attempt=", n)
 			}
 		})
 	}
@@ -197,9 +197,9 @@ func TestFibonacci(t *testing.T) {
 			bo, err := backoff.NewFibonacci(tc.offset, tc.limit, tc.coeff, backoff.NoJitter)
 			tester.AssertEqual(t, nil, err)
 			for i, n := range attempts {
+				t.Log("attempt=", n)
 				got := bo.Attempt(n)
 				tester.AssertEqual(t, tc.want[i], got)
-				t.Log("attempt=", n)
 			}
 		})
 	}
