@@ -14,13 +14,14 @@
 
 # go-backoff
 
-**go-backoff repository.**
+**Backoff algorithm implementations for Go.**
 
 ## Features
 
 - Support various backoff algorithms
 - Offset support
 - Jitter support
+- Function retrying
 - Zero dependency
 
 **Supported backoff algorithms:**
