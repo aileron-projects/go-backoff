@@ -16,3 +16,6 @@ study/
 work/
 temp/
 tmp/
+
+# Examples outputs
+examples/**/*.csv
