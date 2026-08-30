@@ -21,7 +21,7 @@ func TestFixed(t *testing.T) {
 		"interval=0":   {0, []time.Duration{0, 0, 0, 0, 0}},
 		"interval=1":   {1, []time.Duration{0, 1, 1, 1, 1}},
 		"interval=2":   {2, []time.Duration{0, 2, 2, 2, 2}},
-		"interval=max": {math.MaxInt, []time.Duration{0, math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64}},
+		"interval=max": {math.MaxInt64, []time.Duration{0, math.MaxInt64, math.MaxInt64, math.MaxInt64, math.MaxInt64}},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
