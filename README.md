@@ -5,7 +5,7 @@
 [![Release](https://img.shields.io/github/v/release/aileron-projects/go-backoff?sort=semver)](https://github.com/aileron-projects/go-backoff/releases)
 [![Reference](https://pkg.go.dev/badge/github.com/aileron-projects/go-backoff.svg)](https://pkg.go.dev/github.com/aileron-projects/go-backoff)
 [![DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/aileron-projects/go-backoff)
-[![Test](https://github.com/aileron-projects/go-backoff/actions/workflows/test.yaml/badge.svg)](https://github.com/aileron-projects/go/actions/workflows/test.yaml)
+[![Test](https://github.com/aileron-projects/go-backoff/actions/workflows/test.yaml/badge.svg)](https://github.com/aileron-projects/go-backoff/actions/workflows/test.yaml)
 
 [![Insights](https://badgen.net/badge/Insights/open%2Fsource%2Finsights/cyan)](https://deps.dev/go/github.com%2Faileron-projects%2Fgo-backoff)
 [![Insights](https://badgen.net/badge/Insights/OSS%2FInsight/orange)](https://ossinsight.io/analyze/aileron-projects/go-backoff)
@@ -26,12 +26,14 @@
 
 **Supported backoff algorithms:**
 
-- **`Fixed backoff`**
-- **`Random backoff`**
-- **`Linear backoff`**
-- **`Polynomial backoff`**
-- **`Exponential backoff`**
-- **`Fibonacci backoff`**
+See the [API doc](https://pkg.go.dev/github.com/aileron-projects/go-backoff) for details.
+
+- **`Fixed backoff`**: *d = interval*
+- **`Random backoff`**: *d = offset + random(limit-offset)*
+- **`Linear backoff`**: *d = offset + coeff * n*
+- **`Polynomial backoff`**: *d = offset + coeff * n^exponent*
+- **`Exponential backoff`**: *d = offset + coeff * base^n*
+- **`Fibonacci backoff`**: *d = offset + coeff * fibonacci(n)*
 
 ## Usages
 
@@ -41,14 +43,16 @@ Instanciate a backoff provider with paramerters.
 The `Attempt(n int)` returns the n-th backoff duration instead of blocking the call.
 
 ```go
-// Parameters
-offset := 0 * time.Millisecond
-limit := 200 * time.Millisecond
-coeff := 5 * time.Millisecond
-jitter := backoff.NoJitter
+// Create a config.
+// All params are optional. Set to override default values.
+linear := &backoff.LinearConfig{
+  Offset: 0 * time.Millisecond,
+  Limit:  200 * time.Millisecond,
+  Coeff:  5 * time.Millisecond,
+  Jitter: backoff.NoJitter,
+}
 
-// Instanciate a backoff provider.
-bo, err := backoff.NewLinear(offset, limit, coeff, jitter)
+bo, err := linear.New()
 if err != nil {
   panic(err)
 }
@@ -74,12 +78,13 @@ for i := range 11 {
 ### Run retryable functions
 
 The `Retryer` provides running and retrying functions with specified backoff strategy.
+Retry count can be obtained by `RetryCount()`.
 
 Basic usage:
 
 ```go
 // Create a new backoff.
-bo, _ := backoff.NewFixed(10 * time.Millisecond)
+bo, _ := (&backoff.FixedConfig{}).New()
 
 // Create a new retryer with backoff and other params.
 r := backoff.NewRetryer(bo)
@@ -88,7 +93,7 @@ r.MaxElapsedTime = 0 // No timeout
 
 // Run a retryable function.
 err = r.Run(func(n *backoff.Notify) error {
-  fmt.Println("Function called")
+  fmt.Println("Retry count:", n.RetryCount())
   return nil
 })
 ```
@@ -101,19 +106,18 @@ The returned err will always be nil.
 See also [ExampleRetryer_success](./example_test.go).
 
 ```go
-bo, _ := backoff.NewFixed(10 * time.Millisecond)
+bo, _ := (&backoff.FixedConfig{}).New()
 
 r := backoff.NewRetryer(bo)
 r.MaxRetry = 10
 
-counter := 0
 err := r.Run(func(n *backoff.Notify) error {
-  counter++
-  if counter == 3 {
+  count := n.RetryCount()
+  if count == 3 {
     n.Success() // Tell retryer to stop retrying.
     return nil
   }
-  return fmt.Errorf("Err-%d", counter)
+  return fmt.Errorf("Err-%d", count)
 })
 ```
 
@@ -124,23 +128,24 @@ Tell retryer to stop retrying using notifier's `Stop()`.
 See also [ExampleRetryer_stop](./example_test.go).
 
 ```go
-bo, _ := backoff.NewFixed(10 * time.Millisecond)
+bo, _ := (&backoff.FixedConfig{}).New()
 
 r := backoff.NewRetryer(bo)
 r.MaxRetry = 10
 
-counter := 0
 err := r.Run(func(n *backoff.Notify) error {
-  counter++
-  if counter == 3 {
+  count := n.RetryCount()
+  if count == 3 {
     n.Stop() // Tell retryer to stop retrying.
     return errors.New("Err-stop")
   }
-  return fmt.Errorf("Err-%d", counter)
+  return fmt.Errorf("Err-%d", count)
 })
 ```
 
 ### Error handling
+
+Errors from the `Retryer` can be identified like below.
 
 ```go
 err = r.RunContext(ctx, func(n *backoff.Notify) error {
@@ -187,12 +192,12 @@ Benchmarks of calling `Attempt(10)`.
 See [benchmark_test.go](./benchmark_test.go) for test conditions.
 
 ```txt
-BenchmarkFixed-8         1000000000    0.948 ns/op   0 B/op   0 allocs/op
-BenchmarkRandom-8         100000000   10.760 ns/op   0 B/op   0 allocs/op
-BenchmarkLinear-8         100000000   12.660 ns/op   0 B/op   0 allocs/op
-BenchmarkPolynomial-8      45811842   26.200 ns/op   0 B/op   0 allocs/op
-BenchmarkExponential-8     48073263   28.350 ns/op   0 B/op   0 allocs/op
-BenchmarkFibonacci-8      104355823   11.280 ns/op   0 B/op   0 allocs/op
+BenchmarkFixed-8       1000000000    0.6935 ns/op   0 B/op   0 allocs/op
+BenchmarkRandom-8       125753828    9.833  ns/op   0 B/op   0 allocs/op
+BenchmarkLinear-8        84624442   12.98   ns/op   0 B/op   0 allocs/op
+BenchmarkPolynomial-8    32345972   37.23   ns/op   0 B/op   0 allocs/op
+BenchmarkExponential-8   48786039   27.31   ns/op   0 B/op   0 allocs/op
+BenchmarkFibonacci-8    121107502   10.13   ns/op   0 B/op   0 allocs/op
 ```
 
 ## References

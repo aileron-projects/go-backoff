@@ -14,14 +14,14 @@ func main() {
 	defer close()
 	csv.Write([]string{"attempt", "backoff"})
 
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 600 * time.Second
-	coeff := 500 * time.Microsecond
-	jitter := backoff.NoJitter
+	fibonacci := &backoff.FibonacciConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  600 * time.Second,
+		Coeff:  500 * time.Microsecond,
+		Jitter: backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewFibonacci(offset, limit, coeff, jitter)
+	bo, err := fibonacci.New()
 	if err != nil {
 		panic(err)
 	}

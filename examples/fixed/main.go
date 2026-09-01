@@ -14,11 +14,11 @@ func main() {
 	defer close()
 	csv.Write([]string{"attempt", "backoff"})
 
-	// Parameters
-	interval := 100 * time.Millisecond
+	fixed := &backoff.FixedConfig{
+		Interval: 100 * time.Millisecond,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewFixed(interval)
+	bo, err := fixed.New()
 	if err != nil {
 		panic(err)
 	}

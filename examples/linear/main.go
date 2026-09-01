@@ -14,14 +14,14 @@ func main() {
 	defer close()
 	csv.Write([]string{"attempt", "backoff"})
 
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 200 * time.Millisecond
-	coeff := 5 * time.Millisecond
-	jitter := backoff.NoJitter
+	linear := &backoff.LinearConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  200 * time.Millisecond,
+		Coeff:  5 * time.Millisecond,
+		Jitter: backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewLinear(offset, limit, coeff, jitter)
+	bo, err := linear.New()
 	if err != nil {
 		panic(err)
 	}

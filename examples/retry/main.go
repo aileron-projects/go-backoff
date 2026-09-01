@@ -13,7 +13,7 @@ import (
 
 func main() {
 	// Prepare backoff strategy.
-	bo, err := backoff.NewFixed(time.Second)
+	bo, err := (&backoff.FixedConfig{Interval: time.Second}).New()
 	if err != nil {
 		panic(err)
 	}
@@ -26,10 +26,8 @@ func main() {
 	defer cancel()
 
 	// Run retryable function.
-	counter := 0
 	err = retryer.RunContext(ctx, func(notify *backoff.Notify) error {
-		counter++
-		log.Printf("Hello! It's %d-th call.\n", counter)
+		log.Printf("Hello! It's %d-th retry.\n", notify.RetryCount())
 		random := rand.Float64()
 		switch {
 		case random > 0.9: // 10% suceess

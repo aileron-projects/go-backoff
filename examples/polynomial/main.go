@@ -14,15 +14,15 @@ func main() {
 	defer close()
 	csv.Write([]string{"attempt", "backoff"})
 
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 600 * time.Second
-	coeff := 10 * time.Millisecond
-	exponent := 2.0
-	jitter := backoff.NoJitter
+	polynomial := &backoff.PolynomialConfig{
+		Offset:   0 * time.Millisecond,
+		Limit:    600 * time.Second,
+		Coeff:    10 * time.Millisecond,
+		Exponent: 2.0,
+		Jitter:   backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewPolynomial(offset, limit, coeff, exponent, jitter)
+	bo, err := polynomial.New()
 	if err != nil {
 		panic(err)
 	}

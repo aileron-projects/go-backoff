@@ -16,10 +16,6 @@ var (
 	_ Backoff = &Fibonacci{}
 )
 
-// NoLimit is the alias for MaxInt64 in [time.Duration].
-// It is the actual limit of durations.
-const NoLimit = time.Duration(math.MaxInt64)
-
 // Backoff provides backoff algorithm.
 type Backoff interface {
 	// Attempt returns the n-th backoff duration.
@@ -28,13 +24,27 @@ type Backoff interface {
 	Attempt(n int) time.Duration
 }
 
-// NewFixed returns a new instance of [Fixed].
-//   - interval: fixed value of backoff duration. (>=0)
+// FixedConfig is the configuration for [Fixed].
 //
-// Backoff duration for n-th attempt will be:
+// Backoff duration for the n-th attempt is:
 //
 //	d = interval
-func NewFixed(interval time.Duration) (*Fixed, error) {
+//
+// Each field has a zero-value default as described below, so a
+// FixedConfig can be constructed with only the fields that need
+// to differ from the defaults.
+type FixedConfig struct {
+	// Interval is a constant duration of every backoff.
+	// Must be >= 0.
+	// Zero value (default): 1 second.
+	Interval time.Duration
+}
+
+func (c *FixedConfig) New() (*Fixed, error) {
+	interval := c.Interval
+	if interval == 0 {
+		interval = time.Second // Apply default.
+	}
 	if interval < 0 {
 		return nil, rangeError("expect interval>=0. got " + interval.String())
 	}
@@ -55,14 +65,32 @@ func (b *Fixed) Attempt(n int) time.Duration {
 	return b.interval
 }
 
-// NewRandom returns a new instance of [Random].
-//   - offset: offset for the backoff duration. (>=0)
-//   - limit: maximum backoff duration. (>=offset)
+// RandomConfig is the configuration for [Random].
 //
-// Backoff duration for n-th attempt will be:
+// Backoff duration for the n-th attempt is:
 //
 //	d = offset + random(limit-offset)
-func NewRandom(offset, limit time.Duration) (*Random, error) {
+//
+// Each field has a zero-value default as described below, so a
+// RandomConfig can be constructed with only the fields that need
+// to differ from the defaults.
+type RandomConfig struct {
+	// Offset is a constant duration added to every backoff.
+	// Must be >= 0.
+	// Zero value (default): no offset is added.
+	Offset time.Duration
+	// Limit caps the maximum backoff duration.
+	// Must be >= Offset.
+	// Zero value (default): 1 second.
+	Limit time.Duration
+}
+
+func (c *RandomConfig) New() (*Random, error) {
+	limit := c.Limit
+	if limit == 0 {
+		limit = time.Second // Apply default.
+	}
+	offset := c.Offset
 	if err := checkCommonParams(offset, limit, dummy, dummy); err != nil {
 		return nil, err
 	}
@@ -85,16 +113,48 @@ func (b *Random) Attempt(n int) time.Duration {
 	return b.offset + time.Duration(rand.Float64()*b.deltaMax)
 }
 
-// NewLinear returns a new instance of [Linear].
-//   - offset: offset for the backoff duration. (>=0)
-//   - limit: maximum backoff duration. (>=offset)
-//   - coeff: coefficient for linear function. (>=0)
-//   - jitter: parameter for random fluctuation. 1.0 for full jitter. (>=0.0, <=1.0)
+// LinearConfig is the configuration for [Linear].
 //
-// Backoff duration for n-th attempt with no jitter will be:
+// Backoff duration for the n-th attempt with no jitter is:
 //
-//	d = offset + coeff * (n)
-func NewLinear(offset, limit, coeff time.Duration, jitter float64) (*Linear, error) {
+//	d = offset + coeff * n
+//
+// Each field has a zero-value default as described below, so a
+// LinearConfig can be constructed with only the fields that need
+// to differ from the defaults.
+type LinearConfig struct {
+	// Offset is a constant duration added to every backoff.
+	// Must be >= 0.
+	// Zero value (default): no offset is added.
+	Offset time.Duration
+	// Limit caps the maximum backoff duration.
+	// Must be >= Offset.
+	// Zero value (default): no upper limit is applied.
+	Limit time.Duration
+	// Coeff is the coefficient multiplied by n.
+	// Must be >= 0.
+	// Zero value (default): 1 second.
+	Coeff time.Duration
+	// Jitter controls how much random fluctuation is added to the
+	// backoff duration, in the range [0.0, 1.0]:
+	//   - 0.0: no jitter
+	//   - 0.5: half jitter
+	//   - 1.0: full jitter
+	// Zero value (default): 0.0 (no jitter).
+	Jitter float64
+}
+
+func (c *LinearConfig) New() (*Linear, error) {
+	coeff := c.Coeff
+	if coeff == 0 {
+		coeff = 1 * time.Second // Apply default.
+	}
+	limit := c.Limit
+	if limit == 0 {
+		limit = math.MaxInt64 // Apply default.
+	}
+	offset := c.Offset
+	jitter := c.Jitter
 	if err := checkCommonParams(offset, limit, coeff, jitter); err != nil {
 		return nil, err
 	}
@@ -123,17 +183,56 @@ func (b *Linear) Attempt(n int) time.Duration {
 	return withJitter(b.jitter, b.offset, delta)
 }
 
-// NewPolynomial returns a new instance of [Polynomial].
-//   - offset: offset for the backoff duration. (>=0)
-//   - limit: maximum backoff duration. (>=offset)
-//   - coeff: coefficient for polynomial function. (>=0)
-//   - exponent: exponent of n. (>=0)
-//   - jitter: parameter for random fluctuation. 1.0 for full jitter. (>=0.0, <=1.0)
+// PolynomialConfig is the configuration for [Polynomial].
 //
-// Backoff duration for n-th attempt with no jitter will be:
+// Backoff duration for the n-th attempt with no jitter is:
 //
 //	d = offset + coeff * n^exponent
-func NewPolynomial(offset, limit, coeff time.Duration, exponent, jitter float64) (*Polynomial, error) {
+//
+// Each field has a zero-value default as described below, so a
+// PolynomialConfig can be constructed with only the fields that need
+// to differ from the defaults.
+type PolynomialConfig struct {
+	// Offset is a constant duration added to every backoff.
+	// Must be >= 0.
+	// Zero value (default): no offset is added.
+	Offset time.Duration
+	// Limit caps the maximum backoff duration.
+	// Must be >= Offset.
+	// Zero value (default): no upper limit is applied.
+	Limit time.Duration
+	// Coeff is the coefficient multiplied by n^Exponent.
+	// Must be >= 0.
+	// Zero value (default): 1 millisecond.
+	Coeff time.Duration
+	// Exponent is the exponent applied to the attempt number n.
+	// Must be >= 0.
+	// Zero value (default): 2.0.
+	Exponent float64
+	// Jitter controls how much random fluctuation is added to the
+	// backoff duration, in the range [0.0, 1.0]:
+	//   - 0.0: no jitter
+	//   - 0.5: half jitter
+	//   - 1.0: full jitter
+	// Zero value (default): 0.0 (no jitter).
+	Jitter float64
+}
+
+func (c *PolynomialConfig) New() (*Polynomial, error) {
+	coeff := c.Coeff
+	if coeff == 0 {
+		coeff = 1 * time.Millisecond // Apply default.
+	}
+	limit := c.Limit
+	if limit == 0 {
+		limit = math.MaxInt64 // Apply default.
+	}
+	exponent := c.Exponent
+	if exponent == 0 {
+		exponent = 2.0 // Apply default.
+	}
+	offset := c.Offset
+	jitter := c.Jitter
 	if err := checkCommonParams(offset, limit, coeff, jitter); err != nil {
 		return nil, err
 	}
@@ -158,7 +257,7 @@ type Polynomial struct {
 	jitter   float64
 }
 
-func (b Polynomial) Attempt(n int) time.Duration {
+func (b *Polynomial) Attempt(n int) time.Duration {
 	if n <= 0 {
 		return 0
 	}
@@ -171,17 +270,56 @@ func (b Polynomial) Attempt(n int) time.Duration {
 	return withJitter(b.jitter, b.offset, delta)
 }
 
-// NewExponential returns a new instance of [Exponential].
-//   - offset: offset for the backoff duration. (>=0)
-//   - limit: maximum backoff duration. (>=offset)
-//   - coeff: coefficient for exponential function. (>=0)
-//   - base: base number for exponential function. (>=1)
-//   - jitter: parameter for random fluctuation. 1.0 for full jitter. (>=0.0, <=1.0)
+// ExponentialConfig is the configuration for [Exponential].
 //
-// Backoff duration for n-th attempt with no jitter will be:
+// Backoff duration for the n-th attempt with no jitter is:
 //
 //	d = offset + coeff * base^n
-func NewExponential(offset, limit, coeff time.Duration, base, jitter float64) (*Exponential, error) {
+//
+// Each field has a zero-value default as described below, so a
+// ExponentialConfig can be constructed with only the fields that need
+// to differ from the defaults.
+type ExponentialConfig struct {
+	// Offset is a constant duration added to every backoff.
+	// Must be >= 0.
+	// Zero value (default): no offset is added.
+	Offset time.Duration
+	// Limit caps the maximum backoff duration.
+	// Must be >= Offset.
+	// Zero value (default): no upper limit is applied.
+	Limit time.Duration
+	// Coeff is the coefficient multiplied by Base^n.
+	// Must be >= 0.
+	// Zero value (default): 1 millisecond.
+	Coeff time.Duration
+	// Base is the base number applied to the attempt number n.
+	// Must be >= 1.
+	// Zero value (default): 2.0.
+	Base float64
+	// Jitter controls how much random fluctuation is added to the
+	// backoff duration, in the range [0.0, 1.0]:
+	//   - 0.0: no jitter
+	//   - 0.5: half jitter
+	//   - 1.0: full jitter
+	// Zero value (default): 0.0 (no jitter).
+	Jitter float64
+}
+
+func (c *ExponentialConfig) New() (*Exponential, error) {
+	coeff := c.Coeff
+	if coeff == 0 {
+		coeff = 1 * time.Millisecond // Apply default.
+	}
+	limit := c.Limit
+	if limit == 0 {
+		limit = math.MaxInt64 // Apply default.
+	}
+	base := c.Base
+	if base == 0 {
+		base = 2.0 // Apply default.
+	}
+	offset := c.Offset
+	jitter := c.Jitter
 	if err := checkCommonParams(offset, limit, coeff, jitter); err != nil {
 		return nil, err
 	}
@@ -219,16 +357,48 @@ func (b *Exponential) Attempt(n int) time.Duration {
 	return withJitter(b.jitter, b.offset, delta)
 }
 
-// NewFibonacci returns a new instance of [Fibonacci].
-//   - offset: offset for the backoff duration. (>=0)
-//   - limit: maximum backoff duration. (>=offset)
-//   - coeff: coefficient for fibonacci number. (>=0)
-//   - jitter: parameter for random fluctuation. 1.0 for full jitter. (>=0.0, <=1.0)
+// FibonacciConfig is the configuration for [Fibonacci].
 //
-// Backoff duration for n-th attempt with no jitter will be:
+// Backoff duration for the n-th attempt with no jitter is:
 //
 //	d = offset + coeff * fibonacci(n)
-func NewFibonacci(offset, limit, coeff time.Duration, jitter float64) (*Fibonacci, error) {
+//
+// Each field has a zero-value default as described below, so a
+// FibonacciConfig can be constructed with only the fields that need
+// to differ from the defaults.
+type FibonacciConfig struct {
+	// Offset is a constant duration added to every backoff.
+	// Must be >= 0.
+	// Zero value (default): no offset is added.
+	Offset time.Duration
+	// Limit caps the maximum backoff duration.
+	// Must be >= Offset.
+	// Zero value (default): no upper limit is applied.
+	Limit time.Duration
+	// Coeff is the coefficient multiplied by fibonacci(n).
+	// Must be >= 0.
+	// Zero value (default): 1 millisecond.
+	Coeff time.Duration
+	// Jitter controls how much random fluctuation is added to the
+	// backoff duration, in the range [0.0, 1.0]:
+	//   - 0.0: no jitter
+	//   - 0.5: half jitter
+	//   - 1.0: full jitter
+	// Zero value (default): 0.0 (no jitter).
+	Jitter float64
+}
+
+func (c *FibonacciConfig) New() (*Fibonacci, error) {
+	coeff := c.Coeff
+	if coeff == 0 {
+		coeff = 1 * time.Millisecond // Apply default.
+	}
+	limit := c.Limit
+	if limit == 0 {
+		limit = math.MaxInt64 // Apply default.
+	}
+	offset := c.Offset
+	jitter := c.Jitter
 	if err := checkCommonParams(offset, limit, coeff, jitter); err != nil {
 		return nil, err
 	}
