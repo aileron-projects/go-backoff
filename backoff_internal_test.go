@@ -1,28 +1,37 @@
 package backoff
 
 import (
+	"math"
 	"testing"
+	"time"
 
 	"github.com/aileron-projects/go-tester"
 )
 
-func TestNewFixed(t *testing.T) {
+func TestFixedConfig(t *testing.T) {
 	t.Parallel()
-	t.Run("interval<0", func(t *testing.T) {
-		b, err := NewFixed(-1)
-		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
-		tester.AssertEqual(t, nil, b)
-	})
-	t.Run("interval=0", func(t *testing.T) {
-		b, err := NewFixed(0)
+	t.Run("default", func(t *testing.T) {
+		b, err := (&FixedConfig{}).New()
 		tester.AssertEqualErr(t, nil, err)
 		want := &Fixed{
-			interval: 0,
+			interval: time.Second,
 		}
 		tester.AssertDeepEqual(t, want, b)
 	})
+	t.Run("all", func(t *testing.T) {
+		c := &FixedConfig{Interval: 1}
+		want := &Fixed{interval: 1}
+		b, err := c.New()
+		tester.AssertEqualErr(t, nil, err)
+		tester.AssertDeepEqual(t, want, b)
+	})
+	t.Run("interval<0", func(t *testing.T) {
+		b, err := (&FixedConfig{Interval: -1}).New()
+		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
+		tester.AssertEqual(t, nil, b)
+	})
 	t.Run("interval>0", func(t *testing.T) {
-		b, err := NewFixed(1)
+		b, err := (&FixedConfig{Interval: 1}).New()
 		tester.AssertEqualErr(t, nil, err)
 		want := &Fixed{
 			interval: 1,
@@ -31,137 +40,193 @@ func TestNewFixed(t *testing.T) {
 	})
 }
 
-func TestNewRandom(t *testing.T) {
+func TestRandomConfig(t *testing.T) {
 	t.Parallel()
-	t.Run("common param error", func(t *testing.T) {
-		b, err := NewRandom(-1, dummy)
-		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
-		tester.AssertEqual(t, nil, b)
-	})
-	t.Run("valid params", func(t *testing.T) {
-		b, err := NewRandom(1, 10)
+	t.Run("default", func(t *testing.T) {
+		b, err := (&RandomConfig{}).New()
 		tester.AssertEqualErr(t, nil, err)
 		want := &Random{
-			offset:   1,
-			deltaMax: 10 - 1,
+			offset:   0,
+			deltaMax: float64(time.Second),
 		}
 		tester.AssertDeepEqual(t, want, b)
 	})
-}
-
-func TestNewLinear(t *testing.T) {
-	t.Parallel()
+	t.Run("all", func(t *testing.T) {
+		c := &RandomConfig{Offset: 1, Limit: 10}
+		want := &Random{offset: 1, deltaMax: 10 - 1}
+		b, err := c.New()
+		tester.AssertEqualErr(t, nil, err)
+		tester.AssertDeepEqual(t, want, b)
+	})
 	t.Run("common param error", func(t *testing.T) {
-		b, err := NewLinear(-1, dummy, dummy, dummy)
+		b, err := (&RandomConfig{Offset: -1}).New()
 		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
 		tester.AssertEqual(t, nil, b)
 	})
-	t.Run("valid params", func(t *testing.T) {
-		b, err := NewLinear(1, 10, 100, 0.5)
+}
+
+func TestLinearConfig(t *testing.T) {
+	t.Parallel()
+	t.Run("default", func(t *testing.T) {
+		b, err := (&LinearConfig{}).New()
 		tester.AssertEqualErr(t, nil, err)
+		want := &Linear{
+			offset:   0,
+			deltaMax: math.MaxInt64,
+			coeff:    float64(time.Second),
+			jitter:   0,
+		}
+		tester.AssertDeepEqual(t, want, b)
+	})
+	t.Run("all", func(t *testing.T) {
+		c := &LinearConfig{
+			Offset: 1,
+			Limit:  10,
+			Coeff:  100,
+			Jitter: 0.5,
+		}
 		want := &Linear{
 			offset:   1,
 			deltaMax: 10 - 1,
 			coeff:    100,
 			jitter:   0.5,
 		}
+		b, err := c.New()
+		tester.AssertEqualErr(t, nil, err)
 		tester.AssertDeepEqual(t, want, b)
 	})
+	t.Run("common param error", func(t *testing.T) {
+		b, err := (&LinearConfig{Offset: -1}).New()
+		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
+		tester.AssertEqual(t, nil, b)
+	})
+
 }
 
-func TestNewPolynomial(t *testing.T) {
+func TestPolynomialConfig(t *testing.T) {
 	t.Parallel()
+	t.Run("default", func(t *testing.T) {
+		b, err := (&PolynomialConfig{}).New()
+		tester.AssertEqualErr(t, nil, err)
+		want := &Polynomial{
+			offset:   0,
+			deltaMax: math.MaxInt64,
+			coeff:    float64(time.Millisecond),
+			exponent: 2,
+			jitter:   0,
+		}
+		tester.AssertDeepEqual(t, want, b)
+	})
+	t.Run("all", func(t *testing.T) {
+		c := &PolynomialConfig{
+			Offset:   1,
+			Limit:    10,
+			Coeff:    100,
+			Jitter:   0.5,
+			Exponent: 100,
+		}
+		want := &Polynomial{
+			offset:   1,
+			deltaMax: 10 - 1,
+			coeff:    100,
+			jitter:   0.5,
+			exponent: 100,
+		}
+		b, err := c.New()
+		tester.AssertEqualErr(t, nil, err)
+		tester.AssertDeepEqual(t, want, b)
+	})
 	t.Run("common param error", func(t *testing.T) {
-		b, err := NewPolynomial(-1, dummy, dummy, dummy, dummy)
+		b, err := (&PolynomialConfig{Offset: -1}).New()
 		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
 		tester.AssertEqual(t, nil, b)
 	})
 	t.Run("exponent<0", func(t *testing.T) {
-		b, err := NewPolynomial(dummy, dummy, dummy, -1, dummy)
+		b, err := (&PolynomialConfig{Exponent: -1}).New()
 		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
 		tester.AssertEqual(t, nil, b)
 	})
-	t.Run("exponent=0", func(t *testing.T) {
-		b, err := NewPolynomial(dummy, dummy, dummy, 0, dummy)
+}
+
+func TestExponentialConfig(t *testing.T) {
+	t.Parallel()
+	t.Run("default", func(t *testing.T) {
+		b, err := (&ExponentialConfig{}).New()
 		tester.AssertEqualErr(t, nil, err)
-		want := &Polynomial{
-			offset:   dummy,
-			deltaMax: dummy - 1,
-			coeff:    dummy,
-			exponent: 0,
-			jitter:   dummy,
+		want := &Exponential{
+			offset:   0,
+			deltaMax: math.MaxInt64,
+			coeff:    float64(time.Millisecond),
+			base:     2,
+			jitter:   0,
 		}
 		tester.AssertDeepEqual(t, want, b)
 	})
-	t.Run("valid params", func(t *testing.T) {
-		b, err := NewPolynomial(1, 10, 100, 1000, 0.5)
-		tester.AssertEqualErr(t, nil, err)
-		want := &Polynomial{
+	t.Run("all", func(t *testing.T) {
+		c := &ExponentialConfig{
+			Offset: 1,
+			Limit:  10,
+			Coeff:  100,
+			Jitter: 0.5,
+			Base:   1000,
+		}
+		want := &Exponential{
 			offset:   1,
 			deltaMax: 10 - 1,
 			coeff:    100,
-			exponent: 1000,
 			jitter:   0.5,
+			base:     1000,
 		}
+		b, err := c.New()
+		tester.AssertEqualErr(t, nil, err)
 		tester.AssertDeepEqual(t, want, b)
 	})
-}
-
-func TestNewExponential(t *testing.T) {
-	t.Parallel()
 	t.Run("common param error", func(t *testing.T) {
-		b, err := NewExponential(-1, dummy, dummy, dummy, dummy)
+		b, err := (&ExponentialConfig{Offset: -1}).New()
 		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
 		tester.AssertEqual(t, nil, b)
 	})
 	t.Run("base<1", func(t *testing.T) {
-		b, err := NewExponential(dummy, dummy, dummy, 0, dummy)
+		b, err := (&ExponentialConfig{Base: -1}).New()
 		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
 		tester.AssertEqual(t, nil, b)
-	})
-	t.Run("base=1", func(t *testing.T) {
-		b, err := NewExponential(dummy, dummy, dummy, 1, dummy)
-		tester.AssertEqualErr(t, nil, err)
-		want := &Exponential{
-			offset:   dummy,
-			deltaMax: dummy - dummy,
-			coeff:    dummy,
-			base:     1,
-			jitter:   dummy,
-		}
-		tester.AssertDeepEqual(t, want, b)
-	})
-	t.Run("valid params", func(t *testing.T) {
-		b, err := NewExponential(1, 10, 100, 1000, 0.5)
-		tester.AssertEqualErr(t, nil, err)
-		want := &Exponential{
-			offset:   1,
-			deltaMax: 10 - 1,
-			coeff:    100,
-			base:     1000,
-			jitter:   0.5,
-		}
-		tester.AssertDeepEqual(t, want, b)
 	})
 }
 
-func TestNewFibonacci(t *testing.T) {
+func TestFibonacciConfig(t *testing.T) {
 	t.Parallel()
-	t.Run("common param error", func(t *testing.T) {
-		b, err := NewFibonacci(-1, dummy, dummy, dummy)
-		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
-		tester.AssertEqual(t, nil, b)
-	})
-	t.Run("valid params", func(t *testing.T) {
-		b, err := NewFibonacci(1, 10, 100, 0.5)
+	t.Run("default", func(t *testing.T) {
+		b, err := (&FibonacciConfig{}).New()
 		tester.AssertEqualErr(t, nil, err)
+		want := &Fibonacci{
+			offset:   0,
+			deltaMax: math.MaxInt64,
+			coeff:    float64(time.Millisecond),
+			jitter:   0,
+		}
+		tester.AssertDeepEqual(t, want, b)
+	})
+	t.Run("all", func(t *testing.T) {
+		c := &FibonacciConfig{
+			Offset: 1,
+			Limit:  10,
+			Coeff:  100,
+			Jitter: 0.5,
+		}
 		want := &Fibonacci{
 			offset:   1,
 			deltaMax: 10 - 1,
 			coeff:    100,
 			jitter:   0.5,
 		}
+		b, err := c.New()
+		tester.AssertEqualErr(t, nil, err)
 		tester.AssertDeepEqual(t, want, b)
+	})
+	t.Run("common param error", func(t *testing.T) {
+		b, err := (&FibonacciConfig{Offset: -1}).New()
+		tester.AssertEqualErr(t, &Error{Type: "range"}, err)
+		tester.AssertEqual(t, nil, b)
 	})
 }
 

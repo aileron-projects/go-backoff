@@ -10,7 +10,10 @@ import (
 const benchAttempt = 10
 
 func BenchmarkFixed(b *testing.B) {
-	backoff, _ := backoff.NewFixed(time.Second)
+	fixed := &backoff.FixedConfig{
+		Interval: time.Second,
+	}
+	backoff, _ := fixed.New()
 	b.ResetTimer()
 	for b.Loop() {
 		backoff.Attempt(benchAttempt)
@@ -18,7 +21,11 @@ func BenchmarkFixed(b *testing.B) {
 }
 
 func BenchmarkRandom(b *testing.B) {
-	backoff, _ := backoff.NewRandom(time.Second, 10*time.Second)
+	random := &backoff.RandomConfig{
+		Offset: time.Second,
+		Limit:  10 * time.Second,
+	}
+	backoff, _ := random.New()
 	b.ResetTimer()
 	for b.Loop() {
 		backoff.Attempt(benchAttempt)
@@ -26,7 +33,13 @@ func BenchmarkRandom(b *testing.B) {
 }
 
 func BenchmarkLinear(b *testing.B) {
-	backoff, _ := backoff.NewLinear(time.Second, 10*time.Second, 100*time.Millisecond, 0.5)
+	linear := &backoff.LinearConfig{
+		Offset: time.Second,
+		Limit:  10 * time.Second,
+		Coeff:  10 * time.Millisecond,
+		Jitter: backoff.EqualJitter,
+	}
+	backoff, _ := linear.New()
 	b.ResetTimer()
 	for b.Loop() {
 		backoff.Attempt(benchAttempt)
@@ -34,7 +47,14 @@ func BenchmarkLinear(b *testing.B) {
 }
 
 func BenchmarkPolynomial(b *testing.B) {
-	backoff, _ := backoff.NewPolynomial(time.Second, 10*time.Second, 10*time.Millisecond, 3, 0.5)
+	polynomial := &backoff.PolynomialConfig{
+		Offset:   time.Second,
+		Limit:    10 * time.Second,
+		Coeff:    10 * time.Millisecond,
+		Exponent: 3,
+		Jitter:   backoff.EqualJitter,
+	}
+	backoff, _ := polynomial.New()
 	b.ResetTimer()
 	for b.Loop() {
 		backoff.Attempt(benchAttempt)
@@ -42,7 +62,14 @@ func BenchmarkPolynomial(b *testing.B) {
 }
 
 func BenchmarkExponential(b *testing.B) {
-	backoff, _ := backoff.NewExponential(time.Second, 10*time.Second, 10*time.Millisecond, 1.5, 0.5)
+	exponential := &backoff.ExponentialConfig{
+		Offset: time.Second,
+		Limit:  10 * time.Second,
+		Coeff:  10 * time.Millisecond,
+		Base:   1.5,
+		Jitter: backoff.EqualJitter,
+	}
+	backoff, _ := exponential.New()
 	b.ResetTimer()
 	for b.Loop() {
 		backoff.Attempt(benchAttempt)
@@ -50,7 +77,13 @@ func BenchmarkExponential(b *testing.B) {
 }
 
 func BenchmarkFibonacci(b *testing.B) {
-	backoff, _ := backoff.NewFibonacci(time.Second, 10*time.Second, 10*time.Millisecond, 0.5)
+	fibonacci := &backoff.FibonacciConfig{
+		Offset: time.Second,
+		Limit:  10 * time.Second,
+		Coeff:  10 * time.Millisecond,
+		Jitter: backoff.EqualJitter,
+	}
+	backoff, _ := fibonacci.New()
 	b.ResetTimer()
 	for b.Loop() {
 		backoff.Attempt(benchAttempt)

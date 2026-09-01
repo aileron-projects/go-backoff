@@ -14,12 +14,12 @@ func main() {
 	defer close()
 	csv.Write([]string{"attempt", "backoff"})
 
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 100 * time.Millisecond
+	random := &backoff.RandomConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  100 * time.Millisecond,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewRandom(offset, limit)
+	bo, err := random.New()
 	if err != nil {
 		panic(err)
 	}

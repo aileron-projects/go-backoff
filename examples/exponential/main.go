@@ -14,15 +14,15 @@ func main() {
 	defer close()
 	csv.Write([]string{"attempt", "backoff"})
 
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 600 * time.Second
-	coeff := 1 * time.Millisecond
-	base := 1.2
-	jitter := backoff.NoJitter
+	exponential := &backoff.ExponentialConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  600 * time.Second,
+		Coeff:  1 * time.Millisecond,
+		Base:   1.2,
+		Jitter: backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewExponential(offset, limit, coeff, base, jitter)
+	bo, err := exponential.New()
 	if err != nil {
 		panic(err)
 	}

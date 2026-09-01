@@ -8,13 +8,18 @@ import (
 )
 
 var (
+	// ErrMaxRetry is returned by [Retryer.RunContext] when the retryable
+	// function did not succeed within MaxRetry attempts.
 	ErrMaxRetry = errors.New("go-backoff/backoff: max retry count reached")
-	ErrTimeout  = errors.New("go-backoff/backoff: max elapsed time reached")
+	// ErrTimeout is returned by [Retryer.RunContext] when MaxElapsedTime
+	// is reached before the retryable function succeeds.
+	ErrTimeout = errors.New("go-backoff/backoff: max elapsed time reached")
 )
 
 // Notify reports the outcome of a retryable function to the retryer.
 // The retryer stops retrying when either Stop or Success is called.
 type Notify struct {
+	count   int
 	stop    bool
 	success bool
 }
@@ -23,26 +28,32 @@ func (s *Notify) shouldStop() bool {
 	return s.stop || s.success
 }
 
+// RetryCount returns the count of retry.
+// 0 for first run. n>=1 for n-th retry.
+func (n *Notify) RetryCount() int {
+	return n.count
+}
+
 // Stop tells the retryer to stop retrying because the operation
 // cannot succeed by retrying.
 // Use [Success] when the operation has completed successfully.
-func (s *Notify) Stop() {
-	s.stop = true
+func (n *Notify) Stop() {
+	n.stop = true
 }
 
 // Success tells the retryer to stop retrying because the operation
 // has completed successfully.
 // Use [Stop] when the operation should stop retrying without success.
-func (s *Notify) Success() {
-	s.success = true
+func (n *Notify) Success() {
+	n.success = true
 }
 
-// NewRetryer creates a new Retryer with given backoff.
+// NewRetryer creates a new Retryer with the given backoff.
 // Returned retryer has no retry and has no timeout.
-// It uses NewRandom(0, time.Second) when nil was given.
+// It uses (&RandomConfig{Limit: time.Second}).New() when nil is given.
 func NewRetryer(backoff Backoff) *Retryer {
 	if backoff == nil {
-		backoff, _ = NewRandom(0, time.Second)
+		backoff, _ = (&RandomConfig{Limit: time.Second}).New()
 	}
 	return &Retryer{
 		backoff: backoff,
@@ -71,6 +82,9 @@ func (r *Retryer) Run(retryable func(*Notify) error) error {
 // It returns nil if [Notify.Success] is called.
 // It returns the errors returned by the retryable function joined with
 // [errors.Join] if [Notify.Stop] is called.
+// It returns an error wrapping ctx.Err() and all errors returned so far by the
+// retryable function if ctx is canceled or its deadline is exceeded while
+// waiting for the next attempt.
 // It returns an error wrapping [ErrTimeout] and all errors returned by the
 // retryable function if MaxElapsedTime is reached.
 // It returns an error wrapping [ErrMaxRetry] and all errors returned by the
@@ -97,6 +111,7 @@ func (r *Retryer) RunContext(ctx context.Context, retryable func(*Notify) error)
 			return errors.Join(errs...)
 		}
 
+		notify.count = i
 		err := retryable(notify)
 		if err != nil {
 			errs = append(errs, err)

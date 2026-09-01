@@ -9,11 +9,11 @@ import (
 )
 
 func ExampleFixed() {
-	// Parameters
-	interval := 100 * time.Millisecond
+	fixed := &backoff.FixedConfig{
+		Interval: 100 * time.Millisecond,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewFixed(interval)
+	bo, err := fixed.New()
 	if err != nil {
 		panic(err)
 	}
@@ -37,12 +37,12 @@ func ExampleFixed() {
 }
 
 func ExampleRandom() {
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 100 * time.Millisecond
+	random := &backoff.RandomConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  100 * time.Millisecond,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewRandom(offset, limit)
+	bo, err := random.New()
 	if err != nil {
 		panic(err)
 	}
@@ -54,14 +54,14 @@ func ExampleRandom() {
 }
 
 func ExampleLinear() {
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 200 * time.Millisecond
-	coeff := 5 * time.Millisecond
-	jitter := backoff.NoJitter
+	linear := &backoff.LinearConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  200 * time.Millisecond,
+		Coeff:  5 * time.Millisecond,
+		Jitter: backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewLinear(offset, limit, coeff, jitter)
+	bo, err := linear.New()
 	if err != nil {
 		panic(err)
 	}
@@ -85,15 +85,15 @@ func ExampleLinear() {
 }
 
 func ExamplePolynomial() {
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 600 * time.Second
-	coeff := 10 * time.Millisecond
-	exponent := 2.0
-	jitter := backoff.NoJitter
+	polynomial := &backoff.PolynomialConfig{
+		Offset:   0 * time.Millisecond,
+		Limit:    600 * time.Second,
+		Coeff:    10 * time.Millisecond,
+		Exponent: 2.0,
+		Jitter:   backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewPolynomial(offset, limit, coeff, exponent, jitter)
+	bo, err := polynomial.New()
 	if err != nil {
 		panic(err)
 	}
@@ -117,15 +117,14 @@ func ExamplePolynomial() {
 }
 
 func ExampleExponential() {
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 600 * time.Second
-	coeff := 1 * time.Millisecond
-	base := 1.2
-	jitter := backoff.NoJitter
-
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewExponential(offset, limit, coeff, base, jitter)
+	exponential := &backoff.ExponentialConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  600 * time.Second,
+		Coeff:  1 * time.Millisecond,
+		Base:   1.2,
+		Jitter: backoff.NoJitter,
+	}
+	bo, err := exponential.New()
 	if err != nil {
 		panic(err)
 	}
@@ -149,14 +148,14 @@ func ExampleExponential() {
 }
 
 func ExampleFibonacci() {
-	// Parameters
-	offset := 0 * time.Millisecond
-	limit := 600 * time.Second
-	coeff := 500 * time.Microsecond
-	jitter := backoff.NoJitter
+	fibonacci := &backoff.FibonacciConfig{
+		Offset: 0 * time.Millisecond,
+		Limit:  600 * time.Second,
+		Coeff:  500 * time.Microsecond,
+		Jitter: backoff.NoJitter,
+	}
 
-	// Instanciate a backoff provider.
-	bo, err := backoff.NewFibonacci(offset, limit, coeff, jitter)
+	bo, err := fibonacci.New()
 	if err != nil {
 		panic(err)
 	}
@@ -180,7 +179,7 @@ func ExampleFibonacci() {
 }
 
 func ExampleRetryer_stop() {
-	bo, err := backoff.NewFixed(10 * time.Millisecond)
+	bo, err := (&backoff.FixedConfig{10 * time.Millisecond}).New()
 	if err != nil {
 		panic(err)
 	}
@@ -189,33 +188,34 @@ func ExampleRetryer_stop() {
 	r.MaxRetry = 100
 	r.MaxElapsedTime = 0 // No timeout
 
-	counter := 0
 	err = r.Run(func(n *backoff.Notify) error {
-		counter++
-		fmt.Printf("%d-th call\n", counter)
-		if counter == 3 {
+		count := n.RetryCount()
+		fmt.Printf("%d-th call\n", count)
+		if count == 3 {
 			n.Stop()
 			fmt.Println("stop !!")
 			return errors.New("Err-stop")
 		}
-		return fmt.Errorf("Err-%d", counter)
+		return fmt.Errorf("Err-%d", count)
 	})
 
 	fmt.Println("----- Error -----")
 	fmt.Println(err)
 	// Output:
+	// 0-th call
 	// 1-th call
 	// 2-th call
 	// 3-th call
 	// stop !!
 	// ----- Error -----
+	// Err-0
 	// Err-1
 	// Err-2
 	// Err-stop
 }
 
 func ExampleRetryer_success() {
-	bo, err := backoff.NewFixed(10 * time.Millisecond)
+	bo, err := (&backoff.FixedConfig{10 * time.Millisecond}).New()
 	if err != nil {
 		panic(err)
 	}
@@ -224,21 +224,21 @@ func ExampleRetryer_success() {
 	r.MaxRetry = 100
 	r.MaxElapsedTime = 0 // No timeout
 
-	counter := 0
 	err = r.Run(func(n *backoff.Notify) error {
-		counter++
-		fmt.Printf("%d-th call\n", counter)
-		if counter == 3 {
+		count := n.RetryCount()
+		fmt.Printf("%d-th call\n", count)
+		if count == 3 {
 			n.Success()
 			fmt.Println("success !!")
 			return nil
 		}
-		return fmt.Errorf("Err-%d", counter)
+		return fmt.Errorf("Err-%d", count)
 	})
 
 	fmt.Println("----- Error -----")
 	fmt.Println(err)
 	// Output:
+	// 0-th call
 	// 1-th call
 	// 2-th call
 	// 3-th call
