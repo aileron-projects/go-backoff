@@ -86,7 +86,7 @@ func TestLinear(t *testing.T) {
 	}{
 		"offset=0,limit=0,coeff=0": {0, 0, 0, []time.Duration{0, time.Second, 2 * time.Second, 10 * time.Second, maxDurationFloat}},
 		"offset=0,limit>0,coeff=0": {0, 100, 0, []time.Duration{0, 100, 100, 100, 100}},
-		"offset=0,limit=0,coeff>0": {0, 0, 10, []time.Duration{0, 10, 20, 100, maxDurationFloat}},
+		"offset=0,limit=0,coeff>0": {0, 0, 1, []time.Duration{0, 1, 2, 10, math.MaxInt}},
 		"offset=0,limit>0,coeff>0": {0, 100, 2, []time.Duration{0, 2, 4, 20, 100}},
 		"offset>0,limit>0,coeff=0": {10, 100, 0, []time.Duration{0, 100, 100, 100, 100}},
 		"offset>0,limit>0,coeff>0": {10, 100, 2, []time.Duration{0, 12, 14, 30, 100}},
