@@ -77,7 +77,7 @@ func TestRandom(t *testing.T) {
 
 func TestLinear(t *testing.T) {
 	t.Parallel()
-	maxDurationInt := time.Duration(math.Nextafter(math.MaxInt, 0))
+	maxDurationInt := time.Duration(math.Nextafter(math.MaxInt+1, 0))
 	attempts := []int{0, 1, 2, 10, math.MaxInt}
 	testCases := map[string]struct {
 		offset time.Duration
